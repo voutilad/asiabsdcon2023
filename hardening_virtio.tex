@@ -8,11 +8,13 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{hyperref}
+\usepackage{theorem}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\newtheorem{trait}{Ideal Trait}
 \begin{document}
 
-\title{Hardening Emulated Devices in OpenBSD's vmd(8) Hypervisor}
+\title{Hardening Emulated Devices \\ in OpenBSD's vmd(8) Hypervisor}
 
 \author{\IEEEauthorblockN{Dave Voutila}
 \textit{OpenBSD}\\
@@ -21,24 +23,23 @@ dv@openbsd.org}
 \maketitle
 
 \begin{abstract}
-  The 2010s brought commoditization of hardware-assisted
-  virtualization as now most consumer operating systems and computers
-  ship with both support in hardware as well as Type-2
-  hypervisors. With hypervisors comes the need for emulated devices to
-  provide virtual machines interfaces to the outside world, including
-  network cards, disk controllers, and even hardware random number
-  generators. However, hypervisors are still software programs and
-  consequently subject to buffer overflow and stack smashing attacks
-  like any other. Previous research has shown a common weak point in
-  hypervisors to be these very emulated devices where exploits enable
-  ``guest to host escapes'', the most famous being an exploit of an
-  emulated floppy disk controller.
+The 2010s brought commoditization of hardware-assisted virtualization
+as now most consumer operating systems and computers ship with both
+support in hardware as well as Type-2 hypervisors. With hypervisors
+comes the need for emulated devices to provide virtual machines
+interfaces to the outside world, including network cards, disk
+controllers, and even hardware random number generators. However,
+hypervisors are still software programs and consequently subject to
+buffer overflow and stack smashing attacks like any other. Previous
+research has shown a common weak point in hypervisors to be these very
+emulated devices where exploits enable ``guest to host escapes'', the
+most famous being an exploit of an emulated floppy disk controller.
 
-  This paper provides an experimental approach with OpenBSD's Type-2
-  hypervisor (vmd) for isolating emulated devices using the priviledge
-  dropping and seperation capabilities available in OpenBSD 7.3 to
-  mitigate techniques for turning memory bugs into guest-to-host
-  hypervisor escapes.
+This paper provides an experimental approach with OpenBSD's Type-2
+hypervisor (vmd) for isolating emulated devices using the priviledge
+dropping and seperation capabilities available in OpenBSD 7.3 to
+mitigate techniques for turning memory bugs into guest-to-host
+hypervisor escapes.
 \end{abstract}
 
 
@@ -61,7 +62,7 @@ concerns:
   bugs when found.
 \end{itemize}
 
-\subsection{Emulated Devices in Hypervisors}
+\subsection{Emulated Devices as Targets in Hypervisors}
 Like with real computers, devices form the interface between a virtual
 machine and the outside world. While hardware-assisted virtualization
 allow CPU-intensive tasks to achieve bare-metal speeds, at some point
@@ -124,20 +125,57 @@ remotely accessible and doesn't re-randomize itself on a restart, any
 remotely triggerable stack buffer overflow provides a BROP attack
 vector.}
 
-\section{Defending Against BROP}
-The original BROP paper outlines four (4) defensive mechanmisms to
-prevent a successful BROP attack:
+How do these concerns apply to hypervisors? While there are no
+currently known successful BROP-based attacks on hypervisors, the
+concept of \emph{information leakage} still applies. If an attacker
+can use a vulnerable emulated device to leak the hypervisor code into
+guest memory (assuming no program crash), it's possible to perform a
+ROP analysis.
+
+
+\section{Defensive Concerns of the Ideal Hypervisor}
+Considering the state-of-the-art of ROP-based attacks, what would the
+``ideal'' hypervisor consider? BROP has shown it's important to
+consider the following:
 
 \begin{enumerate}
-\item Rerandomization
-\item Sleep on crash
-\item ROP protections (e.g. CFI)
-\item Compiler techniques
+\item Information leakage allows for defeating ASLR defenses.
+\item ROP gadgets allow assembling any needed system call.
+\item System calls allow lateral movement to take over a host.
 \end{enumerate}
 
-Of these four, this paper will focus on ``Rerandomization'' and how a
-redesign of OpenBSD's hypervisor provides increased protection against
-BROP.
+The ideal hypervisor would maximize the complexity of defeating
+ASLR. While the trivial approach would be to simply not respawn after
+a crash (which isn't a common hypervisor trait anways), one can
+propose:
+
+\begin{trait}
+An information leak in one vulnerable component of a hypervisor must
+not inform on other components of the hypervisor.
+\end{trait}
+
+And what about ROP gadgets? They're impossible to completely remove
+from the x86 architecture, so while they can be minimized by changes
+to compilers, in the ideal case our hypervisor would minimize their
+value:
+
+\begin{trait}
+Compromising a component of a hypervisor must not allow for
+compromising other components of the hypervisor, i.e. a vulnerable
+network device must not allow for compromising other devices.
+\end{trait}
+
+Lastly, keeping with the principle of least privledge:
+
+\begin{trait}
+Escaping a guest, via any means, must force the attacker to now
+exploit the hypervisor itself to gain control of the host.
+\end{trait}
+
+While we can harden emulated devices, the difficulty posed to the
+attacker should stay constant or increase even if they manage to take
+control of the device.
+
 
 \section{OpenBSD's Hypervisor}
 Available since OpenBSD 5.9, released on 29 March, 2016, OpenBSD's
@@ -205,6 +243,13 @@ can we minimize the impact and make BROP more difficult?
 
 ...
 
+\section{Future Work and Considerations}
+
+...
+
+\section{Conclusions}
+
+...
 
 \section*{Acknowledgment}
 
