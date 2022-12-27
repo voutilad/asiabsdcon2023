@@ -37,7 +37,7 @@ most famous being an exploit of an emulated floppy disk controller.
 
 This paper provides an experimental approach with OpenBSD's Type-2
 hypervisor (vmd) for isolating emulated devices using the priviledge
-dropping and seperation capabilities available in OpenBSD 7.3 to
+dropping and separation capabilities available in OpenBSD 7.3 to
 mitigate techniques for turning memory bugs into guest-to-host
 hypervisor escapes.
 \end{abstract}
@@ -133,13 +133,13 @@ guest memory (assuming no program crash), it's possible to perform a
 ROP analysis.
 
 
-\section{Defensive Concerns of the Ideal Hypervisor}
+\section{Defensive Concerns of the Ideal Hypervisor} \label{traits}
 Considering the state-of-the-art of ROP-based attacks, what would the
 ``ideal'' hypervisor consider? BROP has shown it's important to
 consider the following:
 
 \begin{enumerate}
-\item Information leakage allows for defeating ASLR defenses.
+\item Information leakage allows for defeating ASLR.
 \item ROP gadgets allow assembling any needed system call.
 \item System calls allow lateral movement to take over a host.
 \end{enumerate}
@@ -149,9 +149,9 @@ ASLR. While the trivial approach would be to simply not respawn after
 a crash (which isn't a common hypervisor trait anways), one can
 propose:
 
-\begin{trait}
-An information leak in one vulnerable component of a hypervisor must
-not inform on other components of the hypervisor.
+\begin{trait} \label{trait1}
+  An information leak in one vulnerable component of a hypervisor must
+  not inform on other components of the hypervisor.
 \end{trait}
 
 And what about ROP gadgets? They're impossible to completely remove
@@ -159,22 +159,22 @@ from the x86 architecture, so while they can be minimized by changes
 to compilers, in the ideal case our hypervisor would minimize their
 value:
 
-\begin{trait}
-Compromising a component of a hypervisor must not allow for
-compromising other components of the hypervisor, i.e. a vulnerable
-network device must not allow for compromising other devices.
+\begin{trait} \label{trait2}
+  Compromising a component of a hypervisor must not allow for
+  compromising other components of the hypervisor, i.e. a vulnerable
+  network device must not allow for compromising other devices.
 \end{trait}
 
-Lastly, keeping with the principle of least privledge:
+Lastly, keeping with the principle of least privilege:
 
-\begin{trait}
-Escaping a guest, via any means, must force the attacker to now
-exploit the hypervisor itself to gain control of the host.
+\begin{trait} \label{trait3}
+  Escaping a guest, via any means, must force the attacker to then
+  exploit the hypervisor itself to gain control of the host.
 \end{trait}
 
 While we can harden emulated devices, the difficulty posed to the
-attacker should stay constant or increase even if they manage to take
-control of the device.
+attacker should \emph{stay constant or increase} even if they manage
+to take control of an emulated device.
 
 
 \section{OpenBSD's Hypervisor}
@@ -200,7 +200,7 @@ like the one already used in other OpenBSD daemons such as
 
 \subsection{Priviledge Dropping in \texttt{vmd}}
 As of OpenBSD 7.2, \texttt{vmd} incorporates three (3) primary
-mechanisms for dropping priviledge:
+mechanisms for dropping privilege:
 
 \begin{enumerate}
 \item \texttt{setresuid(2)/setresgid(2)} - for changing uid/gid
@@ -216,30 +216,54 @@ remains true for \texttt{vmd} as of OpenBSD 7.2:
 
 \begin{enumerate}
 \item All devices are emulated in the same guest vm process.
-\item Guest vm process creation relies only on \texttt{fork(2)}, meaning address layouts are the same across guest vms.
-\item \texttt{vmd} was designed to allow granting users management of specific vm's, including stopping and starting.
+\item Guest vm process creation relies only on \texttt{fork(2)},
+  meaning address layouts are the same across guest vms.
 \end{enumerate}
 
-Since BROP only requires a remotely exploitable stack overflow (possible via a bug in our emulated device) and the \emph{lack of re-randomization of the address space between crashes}, it's feasible to say with the proper configuration, \texttt{vmd} is open to a local BROP-based attack by a user granted control over a single vm.
-
-...
+Given our proposed ideal traits in section \ref{traits}, there are
+identifiable gaps in the current design of \texttt{vmd} with respect
+to device emulation. Consequently, \emph{a compromised device in one
+machine exposes all guests under \texttt{vmd} to risk}.
 
 \section{Hardening a \texttt{vmd} Device}
-So what can we change to mitigate BROP? Removing the ability for users to start or stop vm's, thus removing the ``restart on a crash'' requirement for BROP, would reduce the utility of \texttt{vmd}. Instead, we'll focus on the other half of the same requirement: re-randomization.
-
-We'll focus on weakenesses (2) and (1) in that order.
+We'll use the ``ideal traits'' to design our hardening
+methodology. Implementing each trait requires using multiple
+capabilities of OpenBSD. Let's look at them in order.
 
 \subsection{Maximizing Randomness}
+The first step in implementing \emph{Trait 1} is solving for the 2nd
+weakness outlined above.
+
 To make each guest have their own address space layout, it should be
 as simple as performing the \texttt{exec(2)} part of ``fork+exec,''
-right? \texttt{vmd} poses some challenges towards implementation \emph{because of its existing PrivSep design!}
+right? \texttt{vmd} poses some challenges towards implementation
+\emph{because of its existing PrivSep design!}
 
 ...
 
 \subsection{Minimizing the Impact}
 \texttt{vmd} has had its share of security errata and, like most
 hypervisors, most have been related to emulating a network device. How
-can we minimize the impact and make BROP more difficult?
+can we isolate devices?
+
+The most obvious approach is to simply make each device its own
+process, each with its own address space...
+
+...
+
+\subsection{Escaping into a Void}
+If all else fails, escaping a \emph{device} should leave the attacker
+needing to now find additional exploits to elevate privilege. We now
+have isolated device processes, so what remains attractive to an
+attacker?
+
+...
+
+\section{Security! But at what cost?}
+If Meltdown and Spectre taught the average user anything it's that
+security often comes at the price of performance. What impact do the
+proposed architectural changes to \texttt{vmd} have on things like
+disk and network performance from the point of view of the guest?
 
 ...
 
