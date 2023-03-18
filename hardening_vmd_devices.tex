@@ -37,12 +37,12 @@ most famous being an exploit of an emulated floppy disk controller.
 
 This paper provides an experimental approach with OpenBSD's Type-2
 hypervisor (vmd) for isolating emulated devices using the priviledge
-dropping and separation capabilities available in OpenBSD 7.3 to
+dropping and separation capabilities available in OpenBSD 7.2 to
 mitigate techniques for turning memory bugs into guest-to-host
 hypervisor escapes.
 \end{abstract}
 
-
+\vspace{2mm}
 \begin{IEEEkeywords}
 OpenBSD, virtualization, security
 \end{IEEEkeywords}
@@ -240,12 +240,15 @@ incorporates three (3) primary mechanisms for dropping privilege:
 \vspace{2mm}
 
 In short, the syscalls as early as feasible during program start to
-adjust privledges to those in the following table:
+adjust privledges to those in the Table~\ref{tab1}.
 
+\vspace{2mm}
+\begin{table}
 \begin{center}
+\caption{\label{tab1}Existing Privilege Dropping in \texttt{vmd(8)}}
 \begin{tabular}{| l | l | l | p{3cm} |}
   \hline
-  Process & uid/gid & chroot & pledge(s) \\ \hline
+  process & uid/gid & chroot & pledge(s) \\ \hline
   parent & root & \$PWD & stdio rpath wpath proc tty recvfd sendfd getpw chown fattr flock \\ \hline
   control & \_vmd & \$PWD & stdio unix recvfd sendfd \\ \hline
   agentx & \_vmd & / & stdio recvfd unix \\ \hline
@@ -255,6 +258,8 @@ adjust privledges to those in the following table:
   \hline
 \end{tabular}
 \end{center}
+\end{table}
+\vspace{2mm}
 
 \vspace{3mm}
 \subsection{Existing Weaknesses in \texttt{vmd}}
@@ -486,22 +491,22 @@ the client. Anecdotally, this often shows noticeably worse performance
 than the reverse (having the host act as the client).
 
 Utilizing a Lenovo X1 Carbon laptop (10th generation model) with the
-an Intel i7-1270P cpu, the observations in Table~\ref{perf} were
-observed using \texttt{iperf3(1)} from packages (chosen as it's
-available on both OpenBSD and Alpine. Both guests were allocated 8 GiB
-of memory and the recorded result is the best average throughput
-reported across 3 runs of 60 second duration.
+an Intel i7-1270P CPU, the observations in Table~\ref{perf} were
+observed using \texttt{iperf3(1)} from (chosen as it's available on
+both OpenBSD and Alpine). Both guests were allocated 8 GiB of memory
+and the recorded result is the best average throughput reported across
+3 runs of 60 second duration.
 
 \vspace{2mm}
 \begin{table}
 \begin{center}
 \caption{\label{perf}iperf3 performance test}
-\begin{tabular}{| l | l | l | l |}
+\begin{tabular}{| l | l | p{1cm} | l |}
   \hline
   Host & Guest & Bitrate (Gbps) & $\Delta$ (\%) \\ \hline
-  -current & OpenBSD 7.2 & 0.86 & -- \\ \hline
-  prototype & OpenBSD 7.2 & 1.40 & +63\% \\ \hline
-  -current & Alpine Linux 3.17 & 1.30 & --  \\ \hline
+  -current & OpenBSD 7.2 & 0.86 &  \\ \hline
+  prototype & OpenBSD 7.2 & 1.40 & 63\% \\ \hline
+  -current & Alpine Linux 3.17 & 1.30 &   \\ \hline
   prototype & Alpine Linux 3.17 & 1.14 & -14\%  \\ \hline
 \end{tabular}
 \end{center}
