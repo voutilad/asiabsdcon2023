@@ -186,11 +186,13 @@ to take control of an emulated device.
 Available since OpenBSD 5.9, released on 29 March, 2016, OpenBSD's
 hypervisor consists of three parts:
 
+\vspace{2mm}
 \begin{itemize}
 \item \texttt{vmm(4)} - the in-kernel virtual machine monitor
 \item \texttt{vmd(8)} - the userland virtual machine daemon
 \item \texttt{vmctl(8)} - a utility for interacting with vmd
 \end{itemize}
+\vspace{2mm}
 
 This paper focuses primarily on \texttt{vmd(8)} because it provides
 the emulated devices of interest (e.g. VirtIO network devices).
@@ -202,20 +204,24 @@ committed \cite{b6} a redesign to implement a \emph{fork+exec} model
 like the one already used in other OpenBSD daemons such as
 \texttt{httpd(8)}.
 
+\vspace{2mm}
 \begin{figure}
   \includegraphics[width=0.8\linewidth]{privsep-orig.png}
   \caption{vmd(8)'s first priv-sep design.}
 \end{figure}
+\vspace{2mm}
 
 Shortly thereafter, Reyk added \cite{b7} an additional ``priv''
 process intended to run as root and facilitate privledged operations
 such as naming host-side \texttt{tap(4)} interfaces to match the name
 of the vm.
 
+\vspace{2mm}
 \begin{figure}
   \includegraphics[width=\linewidth]{privsep-72.png}
   \caption{vmd(8)'s priv-sep design as of OpenBSD 7.2.}
 \end{figure}
+\vspace{2mm}
 
 
 \vspace{3mm}
@@ -237,15 +243,15 @@ In short, the syscalls as early as feasible during program start to
 adjust privledges to those in the following table:
 
 \begin{center}
-\begin{tabular}{| l | l | l | l |}
+\begin{tabular}{| l | l | l | p{3cm} |}
   \hline
-  Process & uid/gid & chroot? & pledge(s) \\ \hline
-  parent & root & ? & ? \\ \hline
-  control & ? & ? & ? \\ \hline
-  agentx & ? & ? & ? \\ \hline
-  priv & ? & ? & ? \\ \hline
-  vmm & ? & ? & ? \\ \hline
-  vm & ? & ? & ? \\
+  Process & uid/gid & chroot & pledge(s) \\ \hline
+  parent & root & \$PWD & stdio rpath wpath proc tty recvfd sendfd getpw chown fattr flock \\ \hline
+  control & \_vmd & \$PWD & stdio unix recvfd sendfd \\ \hline
+  agentx & \_vmd & / & stdio recvfd unix \\ \hline
+  priv & root & \$PWD & -- \\ \hline
+  vmm & \_vmd & / & stdio vmm sendfd recvfd proc \\ \hline
+  vm & \_vmd & \$PWD & stdio vmm recvfd \\
   \hline
 \end{tabular}
 \end{center}
@@ -418,10 +424,10 @@ A functioning \texttt{vio(4)} device requires the following for
 operation:
 
 \vspace{2mm}
-\begin{enumerate}
+\begin{itemize}
   \item Two virtqueues (\emph{TX} and \emph{RX}).
   \item An open file descriptor to the host's \texttt{tap(4)} device.
-\end{enumerate}
+\end{itemize}
 \vspace{2mm}
 
 The same mechanisms already in place for using an event loop for
@@ -471,19 +477,22 @@ security often comes at the price of performance. What impact do the
 proposed architectural changes to \texttt{vmd} have on things like
 network performance from the point of view of the guest?
 
+\vspace{3mm}
+\subsection{A Simple TCP Benchmark}
 While this research doesn't aim to perform a full performance
 evaluation at this time, one known area of poor network performance is
 when using a TCP performance test program and having the guest act as
-the client. Anecdotally, this often shows noticeably worse performance than the reverse (having the host act as the client).
+the client. Anecdotally, this often shows noticeably worse performance
+than the reverse (having the host act as the client).
 
-Utilizing a Lenovo X1 Carbon (10th generation model) with the an Intel
-\emph{i7-1270P} cpu and two guests, each with 8 GiB of memory
-allocated, the observations in Table~\ref{perf} were made using
-\texttt{iperf3(1)} from packages (chosen as it's available on both
-OpenBSD and Alpine Linux) and having the guest run it in client mode
-with default options.
+Utilizing a Lenovo X1 Carbon laptop (10th generation model) with the
+an Intel i7-1270P cpu, the observations in Table~\ref{perf} were
+observed using \texttt{iperf3(1)} from packages (chosen as it's
+available on both OpenBSD and Alpine. Both guests were allocated 8 GiB
+of memory and the recorded result is the best average throughput
+reported across 3 runs of 60 second duration.
 
-\vspace{3mm}
+\vspace{2mm}
 \begin{table}
 \begin{center}
 \caption{\label{perf}iperf3 performance test}
@@ -497,13 +506,18 @@ with default options.
 \end{tabular}
 \end{center}
 \end{table}
+\vspace{2mm}
 
-\vspace{3mm} Since \texttt{vmd(8)} does not support multi-processor
-guests, it isn't too surprising that we can see a performance
-improvement from this design for OpenBSD guests. As a consequence of
-the message-based approach, some of the network IO can occur without
-blocking either the vcpu thread or event handling thread (responsible
-for the \texttt{libevent} event handler) in the main vm process.
+\subsection{Interpretation of Results}
+Since \texttt{vmd(8)} does not support multi-processor guests, it
+isn't too surprising that we can see a performance improvement from
+this design for OpenBSD guests. As a consequence of the message-based
+approach, some of the network IO can occur without blocking either the
+vcpu thread or event handling thread (responsible for the
+\texttt{libevent} event handler) in the main vm process. For instance,
+in OpenBSD 7.2, writes by a vcpu to an emulated PCI register will
+block while the device emulates them and potentially injects an
+interrupt, resulting in a syscall via \texttt{ioctl(2)}.
 
 The potential performance regression in Alpine Linux is not
 substantial, but does warrant further investigation.
@@ -525,8 +539,8 @@ transmit and receive processing.
 In addition, relying on syscalls and trips through the kernel to
 communicate adds extra overhead. While unmeasured at this point, if
 it's deemed a bottleneck then exploring messaging via a shared page of
-memory and newer Intel features like \texttt{TPAUSE} instructions
-might reduce latency.
+memory and newer Intel process features like \texttt{TPAUSE}
+instructions might reduce latency.
 
 Lastly, extending the design to VirtIO block devices would be ideal.
 
@@ -537,13 +551,16 @@ OpenBSD contains all the necessary tools for implementing an advanced
 hypervisor design that improves security without complicating user
 experience. While this paper doesn't explore existing approaches from
 systems such as \emph{QEMU}, the idea of isolating devices has been
-attempted by multiple hypervisors, but has yet to become the default
-behavior. The outlined design and approach for \texttt{vmd(8)}
-presents a viable way to bring the isolation needed to approach the
+attempted by multiple hypervisors, but has yet to become the
+\emph{default} behavior.
+
+The outlined design and approach for \texttt{vmd(8)} presents a viable
+way to bring the isolation needed to take another step towards the
 ``ideal hypervisor'' without the expense of operator or user
-complexity keeping with the spirit and design of \texttt{pledge(2)}
-and \texttt{unveil(2)}: it's the developer's responsibility to study
-and improve the program, \emph{not the user's.}
+complexity. This approach keeps with the spirit and design of
+\texttt{pledge(2)} and \texttt{unveil(2)}: it's the developer's
+responsibility to study and improve the program, \emph{not the
+user's.}
 
 
 \vspace{5mm}
