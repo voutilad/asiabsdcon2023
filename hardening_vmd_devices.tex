@@ -47,6 +47,7 @@ hypervisor escapes.
 OpenBSD, virtualization, security
 \end{IEEEkeywords}
 
+\vspace{5mm}
 \section{Introduction}
 One of the earliest documented guest-to-host escapes was made possible
 by a buffer overflow of an emulated video card in the Xen hypervisor
@@ -62,6 +63,7 @@ concerns:
   bugs when found.
 \end{itemize}
 
+\vspace{3mm}
 \subsection{Emulated Devices as Targets in Hypervisors}
 Like with real computers, devices form the interface between a virtual
 machine and the outside world. While hardware-assisted virtualization
@@ -93,7 +95,7 @@ Given the above, it should come as little surprise that almost all
 published virtual machine ``escapes'' \cite{b3} have been as the
 result of exploiting emulated devices!
 
-
+\vspace{3mm}
 \subsection{Return-Oriented Programming}
 At the same time researchers began to find the first guest-to-host
 exploits in hypervisors, other researchers found novel ways to go
@@ -113,6 +115,7 @@ Multiple approaches exist to help prevent a successful ROP attack,
 including Adress Space Randomization (ASLR) and Control Flow Integrity
 (CFI) \cite{b4}.
 
+\vspace{3mm}
 \subsection{Blind Return-Oriented Programming}
 In 2014, \emph{Bittau et. al.} showcased an evolution of ROP, called
 ``Blind Return-Oriented Programming'' (BROP) \cite{b5}, designed to
@@ -132,17 +135,19 @@ can use a vulnerable emulated device to leak the hypervisor code into
 guest memory (assuming no program crash), it's possible to perform a
 ROP analysis.
 
-
+\vspace{5mm}
 \section{Defensive Concerns of the Ideal Hypervisor} \label{traits}
 Considering the state-of-the-art of ROP-based attacks, what would the
 ``ideal'' hypervisor consider? BROP has shown it's important to
 consider the following:
 
+\vspace{2mm}
 \begin{enumerate}
 \item Information leakage allows for defeating ASLR.
 \item ROP gadgets allow assembling any needed system call.
 \item System calls allow lateral movement to take over a host.
 \end{enumerate}
+\vspace{2mm}
 
 The ideal hypervisor would maximize the complexity of defeating
 ASLR. While the trivial approach would be to simply not respawn after
@@ -176,7 +181,7 @@ While we can harden emulated devices, the difficulty posed to the
 attacker should \emph{stay constant or increase} even if they manage
 to take control of an emulated device.
 
-
+\vspace{5mm}
 \section{OpenBSD's Hypervisor}
 Available since OpenBSD 5.9, released on 29 March, 2016, OpenBSD's
 hypervisor consists of three parts:
@@ -190,6 +195,7 @@ hypervisor consists of three parts:
 This paper focuses primarily on \texttt{vmd(8)} because it provides
 the emulated devices of interest (e.g. VirtIO network devices).
 
+\vspace{3mm}
 \subsection{Priviledge Separation in \texttt{vmd}}
 While not in the original release of \texttt{vmd}, Reyk Floeter
 committed \cite{b6} a redesign to implement a \emph{fork+exec} model
@@ -197,7 +203,7 @@ like the one already used in other OpenBSD daemons such as
 \texttt{httpd(8)}.
 
 \begin{figure}
-  \includegraphics[width=\linewidth]{privsep-orig.png}
+  \includegraphics[width=0.8\linewidth]{privsep-orig.png}
   \caption{vmd(8)'s first priv-sep design.}
 \end{figure}
 
@@ -212,17 +218,20 @@ of the vm.
 \end{figure}
 
 
+\vspace{3mm}
 \subsection{Priviledge Dropping in \texttt{vmd}}
 In addition to separating \texttt{vmd} into multiple processes with
 dedicated responsibilities, it additionally uses methods to reduce the
 privilges of each process. As of OpenBSD 7.2, \texttt{vmd}
 incorporates three (3) primary mechanisms for dropping privilege:
 
+\vspace{2mm}
 \begin{enumerate}
 \item \texttt{setresuid(2)/setresgid(2)} - for changing uid/gid
 \item \texttt{chroot(2)} - for isolating file system access
 \item \texttt{pledge(2)} - for removing system call access
 \end{enumerate}
+\vspace{2mm}
 
 In short, the syscalls as early as feasible during program start to
 adjust privledges to those in the following table:
@@ -233,6 +242,7 @@ adjust privledges to those in the following table:
   Process & uid/gid & chroot? & pledge(s) \\ \hline
   parent & root & ? & ? \\ \hline
   control & ? & ? & ? \\ \hline
+  agentx & ? & ? & ? \\ \hline
   priv & ? & ? & ? \\ \hline
   vmm & ? & ? & ? \\ \hline
   vm & ? & ? & ? \\
@@ -240,27 +250,34 @@ adjust privledges to those in the following table:
 \end{tabular}
 \end{center}
 
+\vspace{3mm}
 \subsection{Existing Weaknesses in \texttt{vmd}}
 Even with the existing PrivSep design and mitigations, the following
 remains true for \texttt{vmd} as of OpenBSD 7.2:
 
+\vspace{2mm}
 \begin{enumerate}
 \item All devices are emulated in the same guest vm process.
 \item Guest vm process creation relies only on \texttt{fork(2)},
   meaning address layouts are the same across guest vms.
 \end{enumerate}
+\vspace{2mm}
 
 Given our proposed ideal traits in section \ref{traits}, there are
 identifiable gaps in the current design of \texttt{vmd} with respect
 to device emulation. Consequently, \emph{a compromised device in one
 machine exposes all guests under \texttt{vmd} to risk}.
 
+
+\vspace{5mm}
 \section{Hardening a \texttt{vmd} Device}
 We'll use the ``ideal traits'' to design our hardening
 methodology. Implementing each trait requires using multiple
 capabilities of OpenBSD. Let's look at them in order.
 
+\vspace{3mm}
 \subsection{Maximizing Randomness}
+\label{sec:randomness}
 The first step in implementing \emph{Trait 1} is solving for the 2nd
 weakness outlined above.
 
@@ -282,6 +299,7 @@ filesystem access.
 
 As a consequence, we need to make the following changes:
 
+\vspace{2mm}
 \begin{enumerate}
 \item Remove \emph{vmm}'s \texttt{chroot(2)}.
 \item \texttt{unveil(2)} /usr/sbin/vmd in executable mode.
@@ -291,10 +309,12 @@ As a consequence, we need to make the following changes:
 \item Implement message passing to bootstrap the new \emph{vm} process
   since we can no longer rely on existing global variables.
 \end{enumerate}
+\vspace{2mm}
 
 The last part (message passing) requires the most effort. For now, the
 following approach is used:
 
+\vspace{2mm}
 \begin{enumerate}
 \item Add a new \texttt{getopt(3)} argument to indicate we're
   launching a new \emph{vm}-based process and pass that argument
@@ -304,6 +324,7 @@ following approach is used:
 \item Use synchronous message passing to send the child \emph{vm}
   process its configuration values.
 \end{enumerate}
+\vspace{2mm}
 
 At this point, the privledge separation diagram looks like:
 
@@ -312,44 +333,230 @@ At this point, the privledge separation diagram looks like:
   \caption{vmd(8)'s priv-sep after adding fork+exec for vm's.}
 \end{figure}
 
-\subsection{Minimizing the Impact}
+
+\vspace{3mm}
+\subsection{Minimizing the Impact -- Isolating a Device}
 \texttt{vmd} has had its share of security errata and, like most
 hypervisors, most have been related to emulating a network device. How
 can we isolate devices?
 
 The most obvious approach is to simply make each device its own
-process, each with its own address space...
+process, each with its own address space like we did with the
+\emph{vm} process in section~\ref{sec:randomness}. Ultimately, we want
+to achieve a design illustrated in figure~\ref{fig:new2}.
 
-...
+For this, we'll take one of the more complicated and higher value
+targets of the emulated devices in \texttt{vmd}: the emulated
+\texttt{vio(4)} network device. This poses multiple challenges.
 
-\subsection{Escaping into a Void}
+\begin{figure}
+  \label{fig:new2}
+  \includegraphics[width=0.8\linewidth]{privsep-new2.png}
+  \caption{Isolating multiple VirtIO nics for a vm.}
+\end{figure}
+
+
+\vspace{2mm}
+\subsubsection{Sharing Guest Physical Memory}
+The first challenge, and perhaps the most critical, is that the device
+needs the ability to read and write directly to guest memory. The
+guest memory was already allocated and mapped by the vm process, so we
+need to share the pages between vm process and device process.
+
+This change primarily occurs in the vm process. When allocating the
+memory for the backing guest memory ranges, we can use
+\texttt{shm\_mkstemp(3)} to create a temporary shared memory object
+to use when calling \texttt{mmap(2)}. Since the mapping is no longer
+anonymous, we can make sure that the file descriptor is not set to
+close-on-exec. All that's left is to incorporate the file descriptor
+into a configuration message to send to the device after
+\texttt{execvp(2)}.
+
+
+\vspace{2mm}
+\subsubsection{Bootstrapping the Device Process}
+We need to update the \emph{vm} process to do the
+\texttt{fork(2)/execvp(2)} dance. That's easy enough as previously we
+added the \texttt{-V} flag and can use the same pattern of passing
+configuration data after re-exec. The configuration message needs to
+contain the value of the shared memory file descriptor and the already
+open \texttt{tap(4)} file descriptor.
+
+Like before, we establish a synchronous communication channel and pass
+the file descriptor value via the program arguments so the new device
+process can start communicating and receiving the configuration data.
+
+However, unlike the \emph{vmm-to-vm} communication channel, we need an
+additional asynchronous one to allow for event-based communication.
+
+
+\vspace{2mm}
+\subsubsection{Communicating with the Device}
+The vm process has two threads that may need to communicate with the
+device: the vcpu thread that will emulate IN/OUT instructions to the
+PCI registers and the event loop thread handling asynchronous events.
+
+For the vcpu thread, we need a \emph{synchronous} channel. When
+emulating a PCI register read, the vcpu will expect a response
+immediately. (Writes are trivial as no response is needed.) Since this
+is the vcpu thread, it cannot leverage any async scheduling of
+\emph{imsg}'s since it doesn't own the \texttt{event(3)}
+\emph{event\_base} lest it corrupt existing events!
+
+For the event threads, we need an \emph{asynchronous} channel. One
+message in particular is relayed from the \emph{vmm} process to the
+\emph{vm} process: an update to the host-side MAC. (This occurs at
+some time post vm-launch.) Other async messages include pausing and
+unpausing the device when the vm is being paused or unpaused.
+
+In either case, \emph{imsg} functions are used to guarantee atomic
+delivery.
+
+\vspace{2mm}
+\subsubsection{Communicating with the Network}
+A functioning \texttt{vio(4)} device requires the following for
+operation:
+
+\vspace{2mm}
+\begin{enumerate}
+  \item Two virtqueues (\emph{TX} and \emph{RX}).
+  \item An open file descriptor to the host's \texttt{tap(4)} device.
+\end{enumerate}
+\vspace{2mm}
+
+The same mechanisms already in place for using an event loop for
+reading off the \texttt{tap(4)} can be reused in this case.
+
+
+\vspace{3mm}
+\subsection{Escaping into a Void -- Reducing the Device Surface Area}
 If all else fails, escaping a \emph{device} should leave the attacker
-needing to now find additional exploits to elevate privilege. We now
-have isolated device processes, so what remains attractive to an
-attacker?
+needing to now find additional exploits to elevate privilege. Let's
+assume a bug in the \texttt{vio(4)} device allows a guest-to-host
+escape. What are the next potential escalation paths an attacker will
+want to chain together to get root on the host?
 
-...
+\vspace{2mm}
+\subsubsection{Securing the File System}
+One trivial target is the filesystem, either to exfiltrate sensitive
+data (like private keys), exploit race conditions, or trick another
+program to execute something. The device isn't running as root, so we
+can't simply \texttt{chroot(2)} to \texttt{/var/empty}, but we can
+leverage \texttt{unveil(2)} and achieve a similar result.
 
+\vspace{2mm}
+\subsection{Removing System Calls}
+We want to prevent lateral movement and that means preventing system
+calls. Thankfully, this is trivial with \texttt{pledge(2)} and,
+moreover, we can \emph{further reduce privileges}. Using just the
+``stdio'' promise, we reduce to just a minimal subset of syscalls we
+need for reading and writing our open file descriptors and managing
+our events.
+
+This does mean that an attacker escaping the guest and controlling the
+device process can \text{read(2)/write(2)} but the possible targets
+are limited to the existing file descriptors (communication channels
+with the vm and the host \texttt{tap(4)}). However, no new sockets can
+be created nor can any files in the file system be opened.
+
+Any privilege escalation will need to exploit a smaller surface area
+than exposed by the vm process and need to rely on kernel bugs, most
+likely in this limited area.
+
+
+\vspace{5mm}
 \section{Security! But at what cost?}
 If Meltdown and Spectre taught the average user anything it's that
 security often comes at the price of performance. What impact do the
 proposed architectural changes to \texttt{vmd} have on things like
-disk and network performance from the point of view of the guest?
+network performance from the point of view of the guest?
 
-...
+While this research doesn't aim to perform a full performance
+evaluation at this time, one known area of poor network performance is
+when using a TCP performance test program and having the guest act as
+the client. Anecdotally, this often shows noticeably worse performance than the reverse (having the host act as the client).
 
+Utilizing a Lenovo X1 Carbon (10th generation model) with the an Intel
+\emph{i7-1270P} cpu and two guests, each with 8 GiB of memory
+allocated, the observations in Table~\ref{perf} were made using
+\texttt{iperf3(1)} from packages (chosen as it's available on both
+OpenBSD and Alpine Linux) and having the guest run it in client mode
+with default options.
+
+\vspace{3mm}
+\begin{table}
+\begin{center}
+\caption{\label{perf}iperf3 performance test}
+\begin{tabular}{| l | l | l | l |}
+  \hline
+  Host & Guest & Bitrate (Gbps) & $\Delta$ (\%) \\ \hline
+  -current & OpenBSD 7.2 & 0.86 & -- \\ \hline
+  prototype & OpenBSD 7.2 & 1.40 & +63\% \\ \hline
+  -current & Alpine Linux 3.17 & 1.30 & --  \\ \hline
+  prototype & Alpine Linux 3.17 & 1.14 & -14\%  \\ \hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\vspace{3mm} Since \texttt{vmd(8)} does not support multi-processor
+guests, it isn't too surprising that we can see a performance
+improvement from this design for OpenBSD guests. As a consequence of
+the message-based approach, some of the network IO can occur without
+blocking either the vcpu thread or event handling thread (responsible
+for the \texttt{libevent} event handler) in the main vm process.
+
+The potential performance regression in Alpine Linux is not
+substantial, but does warrant further investigation.
+
+
+\vspace{5mm}
 \section{Future Work and Considerations}
+The prototype has rough edges, specifically around robustness of
+lifecycle management. Improving child process handling in the event of
+program termination as well as preventing possible messaging deadlocks
+at launch would improve viability.
 
-...
+While the performance improvement of networking throughput in OpenBSD
+guests was a pleasant surprise, the lack of improvement in Alpine
+Linux guests shows there's still potential. The single thread design
+of the device process is easier to debug, but prevents simultaneous
+transmit and receive processing.
 
+In addition, relying on syscalls and trips through the kernel to
+communicate adds extra overhead. While unmeasured at this point, if
+it's deemed a bottleneck then exploring messaging via a shared page of
+memory and newer Intel features like \texttt{TPAUSE} instructions
+might reduce latency.
+
+Lastly, extending the design to VirtIO block devices would be ideal.
+
+
+\vspace{5mm}
 \section{Conclusions}
+OpenBSD contains all the necessary tools for implementing an advanced
+hypervisor design that improves security without complicating user
+experience. While this paper doesn't explore existing approaches from
+systems such as \emph{QEMU}, the idea of isolating devices has been
+attempted by multiple hypervisors, but has yet to become the default
+behavior. The outlined design and approach for \texttt{vmd(8)}
+presents a viable way to bring the isolation needed to approach the
+``ideal hypervisor'' without the expense of operator or user
+complexity keeping with the spirit and design of \texttt{pledge(2)}
+and \texttt{unveil(2)}: it's the developer's responsibility to study
+and improve the program, \emph{not the user's.}
 
-...
 
+\vspace{5mm}
 \section*{Acknowledgment}
+The author would like to thank the AsiaBSDCon program committee for
+the opportunity to present on this research. Many thanks also to Mike
+Larkin (\texttt{mlarkin@}) for his guidance and mentorship while
+hacking on \texttt{vmd(8)}. Lastly, the author's spouse deserves
+immense credit for supporting the time and obsession required for
+attempting this research.
 
-TBA
 
+\vspace{5mm}
 \begin{thebibliography}{00}
 \bibitem{b1} Red Hat Bugzilla, \url{https://bugzilla.redhat.com/show_bug.cgi?id=443078}, accessed December 2023.
 \bibitem{b2} Virtual I/O Device (VIRTIO) Version 1.1. Edited by Michael S. Tsirkin and Cornelia Huck, 11 April 2019, OASIS Committee Specification 01, \url{https://docs.oasis-open.org/virtio/virtio/v1.1/cs01/virtio-v1.1-cs01.html}.

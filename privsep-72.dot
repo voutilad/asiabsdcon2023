@@ -7,6 +7,6 @@ digraph privsep_72 {
     vm1 [shape=parallelogram, label="vm n", fontsize=10];
     vm2 [shape=parallelogram, label="vm n+1", fontsize=10];
 
-    parent -> { control, vmm, priv, agenx } [label="fork+exec", fontsize=8];
+    parent -> { control, vmm, priv, agentx } [label="fork+exec", fontsize=8];
     vmm -> { vm1, vm2 } [label="fork", fontsize=8];
 }

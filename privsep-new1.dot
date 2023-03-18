@@ -1,4 +1,4 @@
-digraph privsep_72 {
+digraph privsep_new1 {
     parent [shape=box, label="vmd", fontsize=18];
     control [shape=ellipse, label="control", fontsize=14];
     vmm [shape=ellipse, label="vmm", fontsize=14];
