@@ -1,0 +1,4 @@
+digraph privdrop {
+    root -> _vmd;
+    root [shape=box, label="root", fontsize=24];
+}

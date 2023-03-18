@@ -196,11 +196,27 @@ committed \cite{b6} a redesign to implement a \emph{fork+exec} model
 like the one already used in other OpenBSD daemons such as
 \texttt{httpd(8)}.
 
-...
+\begin{figure}
+  \includegraphics[width=\linewidth]{privsep-orig.png}
+  \caption{vmd(8)'s first priv-sep design.}
+\end{figure}
+
+Shortly thereafter, Reyk added \cite{b7} an additional ``priv''
+process intended to run as root and facilitate privledged operations
+such as naming host-side \texttt{tap(4)} interfaces to match the name
+of the vm.
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{privsep-72.png}
+  \caption{vmd(8)'s priv-sep design as of OpenBSD 7.2.}
+\end{figure}
+
 
 \subsection{Priviledge Dropping in \texttt{vmd}}
-As of OpenBSD 7.2, \texttt{vmd} incorporates three (3) primary
-mechanisms for dropping privilege:
+In addition to separating \texttt{vmd} into multiple processes with
+dedicated responsibilities, it additionally uses methods to reduce the
+privilges of each process. As of OpenBSD 7.2, \texttt{vmd}
+incorporates three (3) primary mechanisms for dropping privilege:
 
 \begin{enumerate}
 \item \texttt{setresuid(2)/setresgid(2)} - for changing uid/gid
@@ -208,7 +224,21 @@ mechanisms for dropping privilege:
 \item \texttt{pledge(2)} - for removing system call access
 \end{enumerate}
 
-...
+In short, the syscalls as early as feasible during program start to
+adjust privledges to those in the following table:
+
+\begin{center}
+\begin{tabular}{| l | l | l | l |}
+  \hline
+  Process & uid/gid & chroot? & pledge(s) \\ \hline
+  parent & root & ? & ? \\ \hline
+  control & ? & ? & ? \\ \hline
+  priv & ? & ? & ? \\ \hline
+  vmm & ? & ? & ? \\ \hline
+  vm & ? & ? & ? \\
+  \hline
+\end{tabular}
+\end{center}
 
 \subsection{Existing Weaknesses in \texttt{vmd}}
 Even with the existing PrivSep design and mitigations, the following
@@ -239,7 +269,48 @@ as simple as performing the \texttt{exec(2)} part of ``fork+exec,''
 right? \texttt{vmd} poses some challenges towards implementation
 \emph{because of its existing PrivSep design!}
 
-...
+Firstly, the \emph{vmm} process responsible for spawning new vm
+processes doesn't utilize the ``exec'' \texttt{pledge(2)}
+promise. This means the \texttt{execvp(2)} syscall is prohibited. But
+that's an easy change; just add the promise, right?
+
+Unfortunately, because \emph{vmm} utilizes \texttt{chroot(2)}, it
+won't have access to the \texttt{vmd(8)} executable in the file
+system. Luckily, we can leverage \texttt{unveil(2)} and the known path
+to the vmd executable to approximate the same outcome of minimizing
+filesystem access.
+
+As a consequence, we need to make the following changes:
+
+\begin{enumerate}
+\item Remove \emph{vmm}'s \texttt{chroot(2)}.
+\item \texttt{unveil(2)} /usr/sbin/vmd in executable mode.
+\item Add ``exec'' to \emph{vmm}'s promises.
+\item Set the child-side of the \texttt{socketpair(2)} file
+  descriptors to not close-on-exec.
+\item Implement message passing to bootstrap the new \emph{vm} process
+  since we can no longer rely on existing global variables.
+\end{enumerate}
+
+The last part (message passing) requires the most effort. For now, the
+following approach is used:
+
+\begin{enumerate}
+\item Add a new \texttt{getopt(3)} argument to indicate we're
+  launching a new \emph{vm}-based process and pass that argument
+  (\texttt{-V}) when exec'ing.
+\item Pass the file descriptor integer for the child-side of the
+  \texttt{socketpair(2)}.
+\item Use synchronous message passing to send the child \emph{vm}
+  process its configuration values.
+\end{enumerate}
+
+At this point, the privledge separation diagram looks like:
+
+\begin{figure}
+  \includegraphics[width=0.8\linewidth]{privsep-new1.png}
+  \caption{vmd(8)'s priv-sep after adding fork+exec for vm's.}
+\end{figure}
 
 \subsection{Minimizing the Impact}
 \texttt{vmd} has had its share of security errata and, like most
@@ -287,6 +358,7 @@ TBA
 \bibitem{b5} H. Shacham, ``The Geometry of Innocent Flesh on the Bone:
   Return-into-libc without Function Calls (on the x86)'', Proceedings of the CCS 2007, ACM Press, pp. 552-61, 2007.
 \bibitem{b6} OpenBSD GitHub mirror, \url{https://github.com/openbsd/src/commit/bcc679a146056243a2fd52a28182621f893fed4b}
+\bibitem{b7} OpenBSD GitHub mirror, \url{https://github.com/openbsd/src/commit/5921535c0be28fd3cf226c9c6a0aa8bb71699acb}
 \end{thebibliography}
 
 \end{document}

@@ -1,0 +1,10 @@
+digraph privsep_orig {
+    parent [shape=box, label="vmd", fontsize=18];
+    control [shape=ellipse, label="control", fontsize=14];
+    vmm [shape=ellipse, label="vmm", fontsize=14];
+    vm1 [shape=parallelogram, label="vm n", fontsize=10];
+    vm2 [shape=parallelogram, label="vm n+1", fontsize=10];
+
+    parent -> { control, vmm } [label="fork+exec", fontsize=8];
+    vmm -> { vm1, vm2 } [label="fork", fontsize=8];
+}
