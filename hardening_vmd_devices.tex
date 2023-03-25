@@ -206,7 +206,7 @@ like the one already used in other OpenBSD daemons such as
 
 \vspace{2mm}
 \begin{figure}
-  \includegraphics[width=0.8\linewidth]{privsep-orig.png}
+  \includegraphics[width=0.9\linewidth]{privsep-orig.png}
   \caption{vmd(8)'s first priv-sep design.}
 \end{figure}
 \vspace{2mm}
@@ -218,7 +218,7 @@ of the vm.
 
 \vspace{2mm}
 \begin{figure}
-  \includegraphics[width=\linewidth]{privsep-72.png}
+  \includegraphics[width=0.9\linewidth]{privsep-72.png}
   \caption{vmd(8)'s priv-sep design as of OpenBSD 7.2.}
 \end{figure}
 \vspace{2mm}
@@ -340,7 +340,7 @@ following approach is used:
 At this point, the privledge separation diagram looks like:
 
 \begin{figure}
-  \includegraphics[width=0.8\linewidth]{privsep-new1.png}
+  \includegraphics[width=0.9\linewidth]{privsep-new1.png}
   \caption{vmd(8)'s priv-sep after adding fork+exec for vm's.}
 \end{figure}
 
@@ -360,11 +360,13 @@ For this, we'll take one of the more complicated and higher value
 targets of the emulated devices in \texttt{vmd}: the emulated
 \texttt{vio(4)} network device. This poses multiple challenges.
 
+\vspace{2mm}
 \begin{figure}
   \label{fig:new2}
-  \includegraphics[width=0.8\linewidth]{privsep-new2.png}
+  \includegraphics[width=0.9\linewidth]{privsep-new2.png}
   \caption{Isolating multiple VirtIO nics for a vm.}
 \end{figure}
+\vspace{2mm}
 
 
 \vspace{2mm}
@@ -436,7 +438,10 @@ operation:
 \vspace{2mm}
 
 The same mechanisms already in place for using an event loop for
-reading off the \texttt{tap(4)} can be reused in this case.
+reading off the \texttt{tap(4)} can be reused in this case. The only
+difference is now when the device needs to assert or deassert the IRQ,
+it needs to broadcast a message to the vm process using the
+asynchronous channel.
 
 
 \vspace{3mm}
