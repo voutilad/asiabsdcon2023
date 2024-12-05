@@ -36,7 +36,7 @@ emulated devices where exploits enable ``guest to host escapes'', the
 most famous being an exploit of an emulated floppy disk controller.
 
 This paper provides an experimental approach with OpenBSD's Type-2
-hypervisor (vmd) for isolating emulated devices using the priviledge
+hypervisor (vmd) for isolating emulated devices using the privilege
 dropping and separation capabilities available in OpenBSD 7.2 to
 mitigate techniques for turning memory bugs into guest-to-host
 hypervisor escapes.
@@ -198,7 +198,7 @@ This paper focuses primarily on \texttt{vmd(8)} because it provides
 the emulated devices of interest (e.g. VirtIO network devices).
 
 \vspace{3mm}
-\subsection{Priviledge Separation in \texttt{vmd}}
+\subsection{Privilege Separation in \texttt{vmd}}
 While not in the original release of \texttt{vmd}, Reyk Floeter
 committed \cite{b6} a redesign to implement a \emph{fork+exec} model
 like the one already used in other OpenBSD daemons such as
@@ -225,7 +225,7 @@ of the vm.
 
 
 \vspace{3mm}
-\subsection{Priviledge Dropping in \texttt{vmd}}
+\subsection{Privilege Dropping in \texttt{vmd}}
 In addition to separating \texttt{vmd} into multiple processes with
 dedicated responsibilities, it additionally uses methods to reduce the
 privilges of each process. As of OpenBSD 7.2, \texttt{vmd}
